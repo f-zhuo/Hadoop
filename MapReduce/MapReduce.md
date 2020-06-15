@@ -22,7 +22,7 @@ MapReduce是一个分布式的计算框架，数据是存储在hdfs上的
 
 按照各台服务器的性能分配数据，流量，使数据和流量尽可能按各台服务器的最大负载量比例进行分配。当应当执行任务的服务器挂掉时，其他服务器就可以承担该任务（按性能比例承担），保证任务不会失败
 
- ![](.\pictures\consistent_hashing.png)
+ ![](./pictures/consistent_hashing.png)
 
 # 云计算的难点
 
@@ -52,9 +52,9 @@ Map-shuffle&sort-Reduce
 
 其中，Map是分解过程，把输入文件的每一行作为一个输入值，键是行数（从0开始），值就是每一行的内容。但是，map函数只需要使用值，所以输出时键会被忽略掉，值按分隔符分开；Reduce是合并过程，接受map阶段输出的键值对，按键聚合计算；shuffle是一个哈希过程，把Map中的各个结果传递给不同的Reduce，map和reduce两个函数都以键值对作为输入和输出
 
-![](.\pictures\MR.png)
+![](./pictures/MR.png)
 
-![](.\pictures\MapReduce1.png)
+![](./pictures/MapReduce1.png)
 
 * Map：
 
@@ -66,7 +66,7 @@ Map-shuffle&sort-Reduce
 
   上步mapper得到的分区会按照key值进行归并排序，即再次把相同key值的数据放在一起，组成新的数据块。这样，得到的每一个数据块，key都一样，不同key的数据块组成一个大数据块（partition），做为一个mapper的输出，reducer的输入。组成partition时，默认按照key进行分区，但也可以手动设置partition，让不同Key的数据块存入一个partition，分别按照key排序。事实上，每个数据被map时，都被哈希partition，partition决定了它最终被哪个reducer计算。下图为三个mapper输出的reduce过程
 
-![](.\pictures\MapReduce2.png)
+![](./pictures/MapReduce2.png)
 
 * reduce：
 
@@ -103,7 +103,7 @@ combine会在每个mapper中进行reduce的操作，也就是按键聚合。最�
 
 整个MapReduce的过程如下：
 
-![](.\pictures\example.png)
+![](./pictures/example.png)
 
 假设对于0001这个业主来说，存在四个数据(0001,34)，(0001,27)，(0001,57)和(0001,39)，分为两组在两个mapper里
 
@@ -221,7 +221,7 @@ task：分为map task和reduce task两种，由tasktracker启动
 
 slot：运行map和reduce的容器
 
-![](.\pictures\MR架构.png)
+![](./pictures/MR架构.png)
 
 客户端给jobtracker发送job请求，jobtracker接受，并返回给客户端一个id号。然后客户端在hdfs上建立一个和id号同名的目录，将job内容上传在里面，向jobtracker提交job。jobtracker初始化，接着分配资源并调度各tasktracker工作，同时通过heartbeat和各节点保持通讯，知晓任务进度。tasktracker通过mapper,reducer完成job，作业的代码来源于客户端上传的文件，所用的数据来源于各slave节点
 
