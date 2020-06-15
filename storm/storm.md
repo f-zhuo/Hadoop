@@ -22,7 +22,7 @@ storm是一个开源实时计算框架，支持多种编程语言，存在一个
 
 ## storm架构
 
-![](.\pictures\storm.png)
+![](./pictures/storm.png)
 
 * Nimbus
 
@@ -34,11 +34,11 @@ storm是一个开源实时计算框架，支持多种编程语言，存在一个
 
 *worker是运行具体处理组件逻辑进程，包括多个executor，一个executor可以执行一个或多个task（可设置），是真正的线程，执行的task就是spout或者bolt，但一个executor每次只运行一个task*
 
-![](.\pictures\worker_process.png)
+![](./pictures/worker_process.png)
 
 MR和storm架构比较
 
-![](.\pictures\compare.png)
+![](./pictures/compare.png)
 
 首先启动Zookeeper才能启动storm，Nimbus 和Supervisor之间的所有协调工作都是通过Zookeeper 集群完成。Nimbus和Supervisor进程都是快速失败（ fail fast ）和无状态的：storm是不存储数据的，状态要么在 Zookeeper 里，要么在本地磁盘上，所以重启Nimbus 和 Supervisor 进程， 任务可以继续提交，就好像什么都没有发生过。storm一旦运行就不会停止，除非kill -9手动结束
 
@@ -62,7 +62,7 @@ spouts是消息来源，消息生产者。如果消息没有被成功处理，�
 
 bolts是消息处理逻辑，如过滤，访问数据库，数据格式化，聚合。可以发射多个stream流，主方法为 execute：以 tuple 为输入，处理具体的 tuple。一个topology有多个bolts，在中间和结束位置
 
-![](.\pictures\topology.png)
+![](./pictures/topology.png)
 
 Stream Grouping定义怎么从一堆 task 发射 tuple 到另外一堆 task。可以调用 TopologyBuilder 类的 setSpout 和 setBolt 来设置并行度，即设置 task的数量。Stream Grouping分为四种
 
@@ -74,7 +74,7 @@ Stream Grouping定义怎么从一堆 task 发射 tuple 到另外一堆 task。�
 
 * Global Grouping ：全局分组
 
-![](.\pictures\stream_grouping.png)
+![](./pictures/stream_grouping.png)
 
 
 
