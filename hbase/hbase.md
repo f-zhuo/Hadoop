@@ -38,17 +38,17 @@ rowkey:column family:column qualifier:version number:value
 
 *除了value都可以理解为key*
 
-![](.\pictures\hbase_model.png)
+![](./pictures/hbase_model.png)
 
 ## hbase的物理模型
 
 * region：多条记录的集合。hbase是由一个或多个region组成的，region内部和region之间都是按rowkey排序
 
-![](.\pictures\region.png)
+![](./pictures/region.png)
 
 region 按大小分割，里面的记录按key分区排序。每个表一开始只有一个 region ，随着数据不断插入表， region 不断增大，当增大到一个阀值的时候， region 就会等分为两个新的region 。当 table 中的行不断增多，就会有越来越多的region
 
-![](.\pictures\region_split.png)
+![](./pictures/region_split.png)
 
 有些region的访问请求少，负载不均衡，可以进行合并
 
@@ -88,7 +88,7 @@ Hregionserver代表进程，负责响应用户的IO请求，与HDFS进行交互�
 
 是存储在hdfs上的所有节点共同维护的一个日志，在每个region server进行操作时都会把操作写入这个log日志，一旦region server失效，其他的节点就可以读取这个日志重复操作以恢复数据。客户端在向region server提交数据时只有同时向WAL写入成功，才会被告知提交成功
 
-![](.\pictures\hbase_read.png)
+![](./pictures/hbase_read.png)
 
 ## hbase的系统架构
 
