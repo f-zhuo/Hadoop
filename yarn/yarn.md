@@ -8,11 +8,11 @@ yarn可以看成是一个分布式的操作系统，可以进行资源整合，�
 
 # 架构
 
-Hadoop1.x只有job tractor和task tractor，Hadoop2.x舍弃了这两者，变成了ResourceManager，ApplicationMaster和NodeManager。job tracker的两个任务-资源管理和作业调度分别被Resource Manager和ApplicationMaster替代
+Hadoop1.x只有job tractor和task tractor，Hadoop2.x舍弃了这两者，变成了ResourceManager，ApplicationMaster和NodeManager，但依然是master/slave的架构。job tracker的两个任务-资源管理和作业调度分别被Resource Manager和ApplicationMaster替代
 
 ## Resource Manager（RM）
 
-全局资源管理器，负责资源的管理和分配，包括Applications Manager（ASM）和scheduler（调度器）。前者负责资源的管理，后者负责资源的分配，部署在主节点
+全局资源管理器，是master，只有一个。负责资源的管理和分配，包括Applications Manager（ASM）和scheduler（调度器）。前者负责资源的管理，后者负责资源的分配，部署在主节点
 
 ### scheduler
 
@@ -34,7 +34,7 @@ Hadoop1.x只有job tractor和task tractor，Hadoop2.x舍弃了这两者，变成
 
 ### Node Manager(NM)
 
-部署在每个从节点上，管理自身的资源和任务。会通过心跳向RM报告自身资源的使用情况，接受AM的任务指令，分配给自身container资源以启动任务
+是slave，有多个，部署在每个从节点上，管理自身的资源和任务。会通过心跳向RM报告自身资源的使用情况，接受AM的任务指令，分配给自身container资源以启动任务
 
 ### container
 
@@ -42,7 +42,7 @@ Hadoop1.x只有job tractor和task tractor，Hadoop2.x舍弃了这两者，变成
 
 *Hadoop1.0的job在2.0对应着application*
 
-Hadoop1.0资源运行任务的地方是slot，包含的资源是CPU和内存，是绝对平均分配的，比如资源一共有4CPU，32G内存，slot有2个，那么每个slot都有2CPU，16G内存，容易造成资源利用率过高或过低。而container可以调整最小容量来改变其数量，使资源利用合理；Hadoop1.0的slot区分map和reduce，Hadoop2.0不区分
+Hadoop1.0资源运行任务的地方是slot，包含的资源是CPU和内存，是绝对平均分配的且区分map和reduce slot，资源无法共享。比如资源一共有4CPU，32G内存，slot有2个，那么每个slot都有2CPU，16G内存，容易造成资源利用率过低；当只有map task/reduce task，另一个slot的资源浪费。而container可以调整最小容量来改变其数量，使资源利用合理
 
 ![](.\pictures\架构.png)
 
