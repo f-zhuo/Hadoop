@@ -11,21 +11,19 @@ Hadoop自带的分布式文件系统，有时简称DFS
 * 采用流式数据访问
 * 大数据
 * 时间延迟大
-* 存储文件数受到namenode内存大小的限制
-* 只能单用户写入，写入操作只能追加在文件末尾
+* 元数据存储在namenode内存里，所以存储文件数受到namenode内存大小的限制
+* 只支持单用户写入，不支持并发写入；不能随机修改文件，写入操作只能追加在文件末尾
+* 不适合存储大量小文件
 
-HDFS的基本存储单元叫做block，默认大小是64M（Hadoop1.x）/128M（Hadoop2.x）。文件都是以block的形式存储的，若文件小于64M，则只会占用同等大小的磁盘空间，不会占用64M
+*Hadoop更倾向于存储大文件的原因*
+hdfs上存储文件的最小单元是block,但是一个block最多只能存储一个文件，哪怕文件只有1kb，也只能放在一个block里，余下的空间都浪费了。故在占用相同block的前提下，存储大文件更能充分利用内存和空间。如果小文件过多，会影响NN的内存，解决方法是合并小文件
 
-block的大小设置的比磁盘块大，是为了最小化寻址时间，这样多个block组成的文件的读写速率就取决于传输速率了
+*block的大小设置的比磁盘块大，是为了最小化寻址时间，这样多个block组成的文件的读写速率就取决于传输速率了*
 
 查看文件由哪些block构成
 ```
 hdfs fsck / -files blocks
 ```
-
-**Hadoop更倾向于存储大文件的原因**
-
-hdfs上存储文件的最小单元是block,但是一个block最多只能存储一个文件，哪怕文件只有1kb，也只能放在一个block里，余下的空间都浪费了。故在占用相同block的前提下，存储大文件更能充分利用内存和空间
 
 # HDFS1.x
 
@@ -43,6 +41,7 @@ master/slave架构，由三个节点组成：namenode，secondnamenode，datanod
 
 * block和实际存储数据的datanode的内存地址的映射
 
+所以hdfs读取文件的过程是：先从namenode获取存储文件名的block（不止一个），再由每个block获取实际存储数据的datanode列表（同一数据备份在多个datanode里），选取最近的datanode读取该数据；当所有block访问完毕后就得到完整数据
 namenode的元数据是存储在内存里的，除此之外，还在磁盘上存储了两个管理元数据的文件：fsimage和editlog。前者是一个镜像文件，用来存储元数据；后者是write-ahead-log，写入的是元数据的操作
 
 ### secondnamenode
@@ -51,9 +50,9 @@ namenode的元数据是存储在内存里的，除此之外，还在磁盘上存
 
 ### datanode
 
-子节点，实际存储和检索block的地方。每个上传的数据都会被切分为block存储（默认64M，2.x是128M），为了保证可用性，每个block有三个备份
+实际存储真实数据的地方，把block数据存储在本地的文件系统中。HDFS每个上传的数据都会被切分为block存储（默认64M，2.x是128M），为了保证可用性，每个block有三个备份
 
-### 容错机制
+## 容错机制
 
 * 将namenode存储的信息的元数据分散布置在多个文件系统中，挂载网络文件系统（NFS）
 * secondnamenode定期合并editlog和fsimage
@@ -82,17 +81,20 @@ client向namenode存入数据时，client每隔固定的文件大小就会通过
 
 * 空间回收机制
 
-  ​	回收站：./Trash
+  * 回收站：./Trash
 
-  ​	直接删除不进入回收站：-skipTrash
+  * 直接删除不进入回收站：-skipTrash
 
 * 副本：一份数据默认在3个节点上有3个备份
 
 * secondnamenode
 
-* 快照
+* 快照：备份，不复制数据，只复制文件元数据，文件名与block的映射关系，用以容错恢复
 
-  ​	备份，不复制数据，只复制文件元数据，文件名与block的映射关系，用以容错恢复
+## Hadoop1.x缺点
+* 只有一个NN，容易出现单点故障
+* 在MR1里，jobtractor负责资源的分配和作业的调度，可拓展性差
+* MR1的slot分为map和reduce slot，且资源绝对平均分配，容易造成资源浪费
 
 # HDFS2.x
 
@@ -132,7 +134,7 @@ zookeeper可以管理两个namenode，通过心跳监视其状态。一旦active
 
 但有时active namenode并没有失效，只是网络连接及响应慢，会被误认为故障，进行了故障转移。此时，active namenode的状态不能是active，需要故障规避（fencing）
 
-##### 故障规避的方法有
+##### 故障规避的方法
 
 * SSH杀死namenode进程
 
@@ -142,9 +144,9 @@ zookeeper可以管理两个namenode，通过心跳监视其状态。一旦active
 
 * 直接对该主机断电
 
-#### QJM（quorum journal manager群体日志管理器）
+#### QJM
 
-高可用的一种方式，QJM集群，包括多个journalnode（jn），和datanode部署在一起。通过QJM的投票机制，少数服从多数，确保当datanode存储数据不一致或某个datanode挂掉时，可以选择应用哪一个数据。正是投票这一机制，决定了jn的数量必须是奇数
+quorum journal manager群体日志管理器，高可用的一种方式，QJM集群，包括多个journalnode（jn），和datanode部署在一起。通过QJM的投票机制，少数服从多数，确保当datanode存储数据不一致或某个datanode挂掉时，可以选择应用哪一个数据。正是投票这一机制，决定了jn的数量必须是奇数
 
 ## ACL（权限控制）
 
