@@ -207,23 +207,23 @@ set mapred.reduce.tasks=10
 hive.groupby.skewindata=true
 ```
 
-* order by：对指定字段进行排序，只有一个reduce
+* order by：对指定字段进行排序，是全局排序，所以只有一个reduce（多个reduce只能保证局部有序，无法保证全局）。当数据量过大时，一个reduce处理性能不佳
 
 将order by用distribute by和sort by结合替换，产生多个reduce
 
-**distribute by**：类似于mapreduce中的partition，控制map端如何拆分数据给reduce
+**distribute by**：类似于mapreduce中的partition，按字段将map端输出分配给不同的reduce
 
 ```shell
 select * from t distribute by id;
 ```
 
-**sort by**：和order by的区别在于，sort by不是全局排序，是在shuffle之前做的排序
+**sort by**：和order by的区别在于，sort by不是全局排序，是在reduce之前做的排序，相当于在各partition中排序
 
 ```shell
 select * from t distribute by itemid sort by userid desc;
 ```
 
-**cluster by**：相当于distribute by和sort by结合，默认只能升序，两个键也要一致
+**cluster by**：相当于distribute by和sort by结合，默认只能倒序，不可更改，而且partition和sort的字段只能一致
 
 ```shell
 select * from t distribute by itemid sort by itemid;
