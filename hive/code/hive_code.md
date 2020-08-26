@@ -551,8 +551,8 @@ SELECT month(dt),
 ## 表连接
 
 - inner join
-  内连接：返回两个表的交集的全部信息
-  内连接必须重命名，必须要用on作唯一条件连接，inner可写可不写
+ 内连接，返回满足连接条件的两个表的所有记录
+ 内连接必须重命名，inner可以省略，必须要用on作唯一条件连接，不能用where，否则会先进行笛卡尔积再过滤
 
 找出既在user_list_1,又在user_list_2的用户
 
@@ -614,7 +614,7 @@ SELECT a.user_name
 ```
 
 - left join
-  左连接，以左表为全集，求右表的交集(匹配结果)/补集(匹配不到，显示NULL)
+  左连接，属于外连接（outer join）。以左表为基准，返回和左表相同的记录数。从左表第一行开始，根据on连接条件循环匹配右表所有记录，存在匹配结果就补充，否则用NULL补充
 
 user_list_1,user_list_2的左连接
 
@@ -625,7 +625,7 @@ SELECT *
 ```
 
 - right join
-  以右表为全集
+  右连接，属于外连接。以右表为基准，返回和右表相同的记录数。从左表第一行开始，根据on连接条件循环匹配右表所有记录，左表存在匹配结果就补充，否则用NULL补充
 
 取出在user_list_1表但不在user_list_2表的用户
 
@@ -718,7 +718,9 @@ FROM
 ```
 
 - full join
-  full out join 求并集
+  全连接，属于外连接。返回左表和右表的记录数之和，两表互相匹配，存在匹配结果就补充，否则用NULL补充
+
+*对于outer join，on连接条件是不可缺少的*
 
 对两个表进行full join
 
@@ -735,7 +737,41 @@ SELECT coalesce(a.user_name,b.user_name)
 FROM user_list_1 a FULL JOIN 
 user_list_2 b ON a.user_id=b.user_id; 
 ```
+* cross join：
 
+笛卡尔连接。对两个表做笛卡尔积，所以不需要也不允许指定连接条件
+
+```mysql
+SELECT *
+FROM user_list_1 a
+CROSS JOIN user_list_2 b;
+```
+
+当inner join没有指定on连接时，效果和cross join是一样的。上面的cross join就可以写成
+```sql
+SELECT *
+FROM user_list_1 a
+JOIN user_list_2 b;
+```
+* left semi join
+
+返回左表中的on字段也在右表中的记录，记录数不一定等于左表
+
+选出user_list_2中包含user_list_1的user_id和user_name
+```sql
+SELECT a.user_id,
+	   a.user_name
+FROM user_list_1 a LEFT SEMI JOIN 
+user_list_2 b ON a.user_id=b.user_id;
+```
+等价于
+```sql
+SELECT user_id,
+       user_name
+FROM user_list_1 
+WHERE user_id in 
+(select user_id from user_list_2);
+```
 ##### coalesce函数
 
  ` coalesce(expression1,expression2,expression3,……)`
