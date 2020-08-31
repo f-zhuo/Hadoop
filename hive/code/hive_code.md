@@ -1,5 +1,7 @@
 # 基本命令
 
+## 数据库
+
 创建数据库
 
 ```shell
@@ -21,7 +23,7 @@ use myhive;
 查看数据库
 
 ```shell
-show databases；
+show databases;
 ```
 
 删除数据库
@@ -32,7 +34,11 @@ hive中删除数据库要求数据库为空（空表也不可以），可以使�
 drop database if exists myhive cascade;
 ```
 
-创建表，同时导入数据
+## 表和导入导出
+
+### 内部表（默认）
+
+* 建表的同时导入数据
 
  ```shell
 CREATE Table movie_table
@@ -43,10 +49,8 @@ genres STRING
 row format delimited fields terminated by ',' 
 stored as textfile
 location '/movie_table';
-# location 后的路径必须是目录
+# location后的路径必须是目录,hive导入数据时，会读取目录下的所有文件
  ```
-
-hive创建表格导入数据时，会读取目录下的所有文件
 
 不在hive终端执行
 
@@ -65,7 +69,7 @@ stored as textfile
 location '/movie_table';
 ```
 
-like建表法（只有元数据）
+* like建表法（只有元数据）
 
 ```shell
 create table empty_store like store;
@@ -74,7 +78,7 @@ create table empty_store like store;
 从本地导入
 
 ```shell
-load data local inpath '/home//hive_test/movies/movies.csv' overwrite into table movie_table;
+load data local inpath '/home/hive_test/movies/movies.csv' overwrite into table movie_table;
 ```
 
 从HDFS导入
@@ -83,10 +87,10 @@ load data local inpath '/home//hive_test/movies/movies.csv' overwrite into table
 load data inpath '/movie_table' overwrite into table movie_table;
 ```
 
-查询建表法（有数据）
+* 查询建表法（有数据）
 
 ```shell
-create table t1 as select userid from t2 ;
+from t2 create table t1 as select userid;
 ```
 
 插入数据
@@ -105,65 +109,6 @@ insert overwrite local directory '/home/hive_test/t1' select * from t1;
 
 ```shell
 insert overwrite directory '/t1' select * from t1;
-```
-
- join
-
-将A和B进行join
-
- ```shell
-select B.userid, A.title
-from movie_table A
-join rating_table B
-on A.movie_id = B.movie_id
-limit 10;
- ```
-
-分区插入
-
-```shell
-insert into table t1 partition(c) select * from t2;
-```
-
-partition分区
-
-减少查询时扫描的数据，避免全表扫描，提高效率
-
-建分区表
-
-```shell
-create table logs
-(
-ts int,
-line string
-)
-partitioned by(dt string,country string);
-load data local inpath '/home/hadoop/file1' into table logs
-partition(dt='2001-01-01',country='CH');
-load data local inpath '/home/hadoop/file2' into table logs
-partition(dt='2001-01-01',country='US');
-```
-
-查看表的分区
-
-```shell
-show partitions logs;
-```
-
-bucket
-
-```shell
-set hive.enforce.bucketing=true;
-
-CREATE Table table_b
-(userid STRING,
-movieid STRING,
-rating STRING
-)
-clustered by (userid) INTO 16 buckets;
-
-insert overwrite table table_b
-select userid,movieid,rating from table_a;
 ```
 
 修改表名
@@ -190,7 +135,55 @@ alter table tab_fq add columns(age int);
 drop table if exists tab_fq;
 ```
 
-## 基础语法
+### 外部表
+
+```sql
+create external table t1 like t2;
+```
+
+### partition
+
+```shell
+create table logs
+(ts int,
+line string)
+partitioned by(dt string,country string);
+
+load data local inpath '/home/hadoop/file1' into table logs
+partition(dt='2001-01-01',country='CH');
+load data local inpath '/home/hadoop/file2' into table logs
+partition(dt='2001-01-01',country='US');
+```
+
+分区插入
+
+```shell
+insert into table t1 partition(c) select * from t2;
+```
+
+查看logs表的分区
+
+```shell
+show partitions logs;
+```
+
+### bucket
+
+```shell
+set hive.enforce.bucketing=true;
+
+CREATE Table table_b
+(userid STRING,
+movieid STRING,
+rating STRING
+)
+clustered by (userid) INTO 16 buckets;
+
+insert overwrite table t2
+select userid,movieid,rating from t1;
+```
+
+## 基本查询语句
 
 - SELECT  A  FROM  B  WHERE  C
 
@@ -206,7 +199,7 @@ limit 10;
 
 **如果查询的表为一个分区表，则WHERE条件必须对分区字段进行限制**
 
-选出在2019年4月9日，购买商品品类为food的用户名，购买数量，支付金额(user_trade的分区字段是dt)
+选出在2019年4月9日，购买商品品类为food的用户名，购买数量，支付金额（user_trade的分区字段是dt）
 
 ```sql
 SELECT user_name,
@@ -216,7 +209,7 @@ FROM user_trade
 WHERE goods_category='food' and dt='2019-04-09';
 ```
 
-选出购买商品品类为food的用户名，购买数量，支付金额(user_trade的分区字段是dt)
+选出购买商品品类为food的用户名，购买数量，支付金额（user_trade的分区字段是dt）
 
 *对分区字段没有限制条件可令其大于0*
 
@@ -228,7 +221,7 @@ FROM user_trade
 WHERE goods_category='food' and dt>'0';
 ```
 
-- GROUP BY
+- GROUP BY / GROUP BY  HAVING
 
 2019年1月至4月，每个品类有多少人购买，累计金额是多少
 
@@ -241,22 +234,9 @@ WHERE dt between '2019-01-01' and '2019-04-30'
 GROUP BY goods_category;
 ```
 
-- 常用聚合函数
+HAVING和WHERE的区别：
 
-|       函数       |   含义   |
-| :--------------: | :------: |
-|     count()      |   计数   |
-| count(distinct ) | 去重计数 |
-|      sum()       |   求和   |
-|      avg()       |  平均值  |
-|      max()       |  最大值  |
-|      min()       |  最小值  |
-
-- 按条件分组 GROUP BY  HAVING
-
-**HAVING和WHERE的区别**
-    WHERE紧跟在SELECT后面，限制原始表数据；
-    HAVING与GROUP BY连用，限制分组后的数据
+WHERE是限制原始表数据，HAVING与GROUP BY连用，限制分组后的数据
 
 2019年4月，支付金额超过5万元的用户
 
@@ -292,7 +272,7 @@ FROM - ON - JOIN - WHERE - GROUP BY - HAVING - SELECT - DISTINCT - ORDER BY - LI
 
 #### 时间戳转换为日期
 
-- from_unixtime(bigint unixtime,'yyyy-MM-dd hh:mm:ss')
+- `from_unixtime(timestamp,'yyyy-MM-dd hh:mm:ss')`
 
 ```sql
 SELECT pay_time,
@@ -303,7 +283,7 @@ WHERE dt='2019-04-09';
 
 #### 日期转换为时间戳
 
-- unix_timestamp(string date)
+- `unix_timestamp(string date)`
 
 ```sql
 SELECT pay_time,
@@ -321,10 +301,19 @@ SELECT pay_time,
        unix_timestamp(unix)
 ```
 
+#### 日期格式转换
+
+* `to_date(time)`： 把datetime（包含年月日小时分钟秒）转换为date（仅含年月日）的格式
+
+```sql
+SELECT to_data(pay_time)
+FROM user_trade
+WHERE dt='2019-04-09';       
+```
+
 #### 计算日期间隔
 
-- datediff(end_date,start_date)
-- to_date(time): 把datetime(包含年月日小时分钟秒)转换为date(仅含年月日)的格式
+- `datediff(end_date,start_date)`
 
 ```sql
 SELECT user_name,
@@ -333,10 +322,10 @@ FROM user_info
 limit 10;
 ```
 
-#### 日期增加，日期减少函数
+#### 日期增加/减少函数
 
-- date_add(string startdate,int adding_days)
-- date_sub(string startdate,int sub_days)
+- `date_add(string startdate,int adding_days)`
+- `date_sub(string startdate,int sub_days)`
 
 ```sql
 SELECT user_name,
@@ -349,33 +338,33 @@ limit 10;
 
 ### 条件函数
 
-#### case when(多条件)
+#### case when（多条件）
 
 统计20岁以下，20-30岁，30-40岁，40岁以上的用户数
 
 ```sql
 SELECT case when age <20 then '20以下'
-               when 20<=age and age<30 then '20-30'
-               when 30<=age and age<40 then '30-40'
-               else '40以上' end,
+            when 20<=age and age<30 then '20-30'
+            when 30<=age and age<40 then '30-40'
+            else '40以上' end,
        count(distinct user_name) user_num
 FROM user_info
 GROUP BY case when age <20 then '20以下'
-               when 20<=age and age<30 then '20-30'
-               when 30<=age and age<40 then '30-40'
-               else '40以上' end;
+              when 20<=age and age<30 then '20-30'
+              when 30<=age and age<40 then '30-40'
+              else '40以上' end;
 ```
 
-错误，连续不等条件必须分开写
+错误写法：连续不等条件必须分开写
 
 ```sql
 SELECT case when age <20 then '20以下'
-               when 20<=age<30 then '20-30'
-               when 30<=age<40 then '30-40'
-               else '40以上' end
+            when 20<=age<30 then '20-30'
+            when 30<=age<40 then '30-40'
+            else '40以上' end
 ```
 
-错误，group by不可重命名
+错误写法：group by不可重命名
 
 ```sql
 GROUP BY (case when age <20 then '20以下'
@@ -384,9 +373,9 @@ GROUP BY (case when age <20 then '20以下'
                else '40以上' end) age;
 ```
 
-#### if(两种情况)
+#### if（两种情况）
 
-统计每个性别用户等级高低(level>5即为高级)的分布情况
+统计每个性别用户等级高低（level>5即为高级）的分布情况
 
 ```sql
 SELECT sex,
@@ -401,8 +390,7 @@ GROUP BY sex,
 
 #### 截取字符串
 
-- substr(string,start,len)
-  若不指定截取长度，则从起始位置截取到最后
+- `substr(string,start,len)`：若不指定截取长度，则从起始位置截取到最后
 
 每个月新激活的用户数
 
@@ -413,16 +401,14 @@ FROM user_info
 GROUP BY substr(firstactivetime,1,7);
 ```
 
-#### 获取json格式和map格式的value值
+#### json和map格式的取值函数
 
-- json格式
-  get_json_object(json_string,'$.key')
-- map格式
-  map['key']
+- json格式：`get_json_object(json_string,'$.key')`
+- map格式：`map_field['key']`
 
 不同手机品牌的用户数
 
-*json格式*
+json格式
 
 ```sql
 SELECT get_json_object(extra1,'$.phonebrand'),
@@ -431,7 +417,7 @@ FROM user_info
 GROUP BY get_json_object(extra1,'$.phonebrand');
 ```
 
-*map格式*
+map格式
 
 ```sql
 SELECT extra2['phonebrand'],
@@ -440,7 +426,7 @@ FROM user_info
 GROUP BY extra2['phonebrand'];
 ```
 
-错误，distinct和group by不可同用在一个查询里
+错误写法：distinct和group by不可同用在一个查询里，group by相当于distinct
 
 ```sql
 SELECT distinct extra2['phonebrand'],
@@ -451,24 +437,33 @@ GROUP BY extra2['phonebrand'];
 
 ### 聚合统计函数
 
+|       函数       |   含义   |
+| :--------------: | :------: |
+|     count()      |   计数   |
+| count(distinct ) | 去重计数 |
+|      sum()       |   求和   |
+|      avg()       |  平均值  |
+|      max()       |  最大值  |
+|      min()       |  最小值  |
+
 ELLA用户的2018年的平均支付金额，2018年最大的支付日期与最小支付日期的间隔
 
 ```sql
 SELECT avg(pay_amount),
-        datediff(from_unixtime(max(pay_time),'yyyy-MM-dd'),from_unixtime(min(pay_time),'yyyy-MM-dd'))
+       datediff(from_unixtime(max(pay_time),'yyyy-MM-dd'),from_unixtime(min(pay_time),'yyyy-MM-dd'))
 FROM user_trade
 WHERE user_name='ELLA' and 
-       substr(dt,1,4)='2018';
+      substr(dt,1,4)='2018';
 ```
 
 或
 
 ```sql
 SELECT avg(pay_amount),
-        datediff(max(from_unixtime(pay_time,'yyyy-MM-dd')),min(from_unixtime(pay_time,'yyyy-MM-dd')))
+       datediff(max(from_unixtime(pay_time,'yyyy-MM-dd')),min(from_unixtime(pay_time,'yyyy-MM-dd')))
 FROM user_trade
 WHERE user_name='ELLA' and 
-       year(dt)='2018';
+      year(dt)='2018';
 ```
 
 *统计聚合函数不可做如avg(count(* ))这样的嵌套组合
@@ -548,11 +543,17 @@ SELECT month(dt),
                    else '1000以上' end;
 ```
 
-## 表连接
+### coalesce函数
 
-- inner join
- 内连接，返回满足连接条件的两个表的所有记录
- 内连接必须重命名，inner可以省略，必须要用on作唯一条件连接，不能用where，否则会先进行笛卡尔积再过滤
+ ` coalesce(expression1,expression2,expression3,……)`
+
+依次访问expression1，expression2，expression3……遇到非null值就返回，遇到null值就访问下一个。若所有的都为null值，返回null值
+
+# 表连接
+
+## inner join/join
+
+内连接，返回满足连接条件的两个表的所有记录。内连接必须重命名，inner可以省略，必须要用on作唯一条件连接，不能用where，否则会先进行笛卡尔积再过滤
 
 找出既在user_list_1,又在user_list_2的用户
 
@@ -613,8 +614,9 @@ SELECT a.user_name
      on b.user_name=c.user_name;
 ```
 
-- left join
-  左连接，属于外连接（outer join）。以左表为基准，返回和左表相同的记录数。从左表第一行开始，根据on连接条件循环匹配右表所有记录，存在匹配结果就补充，否则用NULL补充
+## left join
+
+左连接，属于外连接（outer join）。以左表为基准，返回和左表相同的记录数。从左表第一行开始，根据on连接条件循环扫描右表所有记录，存在匹配结果就连接，否则用NULL连接
 
 user_list_1,user_list_2的左连接
 
@@ -624,8 +626,9 @@ SELECT *
  LEFT JOIN user_list_2 b on a.user_id=b.user_id; 
 ```
 
-- right join
-  右连接，属于外连接。以右表为基准，返回和右表相同的记录数。从左表第一行开始，根据on连接条件循环匹配右表所有记录，左表存在匹配结果就补充，否则用NULL补充
+## right join
+
+右连接，属于外连接。以右表为基准，返回和右表相同的记录数。从右表第一行开始，根据on连接条件循环扫描左表所有记录，若存在匹配结果就连接，否则用NULL连接
 
 取出在user_list_1表但不在user_list_2表的用户
 
@@ -717,8 +720,9 @@ FROM
  WHERE c.user_name is null;
 ```
 
-- full join
-  全连接，属于外连接。返回左表和右表的记录数之和，两表互相匹配，存在匹配结果就补充，否则用NULL补充
+## full join
+
+全连接，属于外连接。返回左表和右表的记录数之和，两表互相匹配，存在匹配结果就连接，否则用NULL连接
 
 *对于outer join，on连接条件是不可缺少的*
 
@@ -737,7 +741,31 @@ SELECT coalesce(a.user_name,b.user_name)
 FROM user_list_1 a FULL JOIN 
 user_list_2 b ON a.user_id=b.user_id; 
 ```
-* cross join：
+
+## left semi join
+
+返回左表中的on字段也在右表中的记录，记录数不一定等于左表
+
+选出user_list_2中包含user_list_1的user_id和user_name
+
+```sql
+SELECT a.user_id,
+	   a.user_name
+FROM user_list_1 a LEFT SEMI JOIN 
+user_list_2 b ON a.user_id=b.user_id;
+```
+
+等价于
+
+```sql
+SELECT user_id,
+	   user_name
+FROM user_list_1 
+WHERE user_id in 
+(select user_id from user_list_2);
+```
+
+## cross join
 
 笛卡尔连接。对两个表做笛卡尔积，所以不需要也不允许指定连接条件
 
@@ -748,37 +776,16 @@ CROSS JOIN user_list_2 b;
 ```
 
 当inner join没有指定on连接时，效果和cross join是一样的。上面的cross join就可以写成
-```sql
+
+```mysql
 SELECT *
 FROM user_list_1 a
 JOIN user_list_2 b;
 ```
-* left semi join
 
-返回左表中的on字段也在右表中的记录，记录数不一定等于左表
+## union all
 
-选出user_list_2中包含user_list_1的user_id和user_name
-```sql
-SELECT a.user_id,
-	   a.user_name
-FROM user_list_1 a LEFT SEMI JOIN 
-user_list_2 b ON a.user_id=b.user_id;
-```
-等价于
-```sql
-SELECT user_id,
-       user_name
-FROM user_list_1 
-WHERE user_id in 
-(select user_id from user_list_2);
-```
-##### coalesce函数
-
- ` coalesce(expression1,expression2,expression3,……)`
-依次访问expression1,expression2,expression3,……遇到非null值就返回，遇到null值就访问下一个。若所有的都为null值，返回null值
-
-- union all
-  合并，把两个/多个表合并为一个表，类似追加记录。要求合并的表的字段名，字段顺序一致，否则会出错/得到错误结果。union all只是把表合并，故不需要连接条件
+合并，把两个/多个表合并为一个表，类似追加记录。要求合并的表的字段名，字段顺序一致，否则会出错。union all只是把表合并，故不需要连接条件
 
 把user_list_1和user_list_2合并为一个表
 
@@ -807,8 +814,9 @@ SELECT user_id,
      FROM trade_2019) a;
 ```
 
-- union
-  合并，用法同union all，区别在于union会去重，会排序；union all不会去重，不会排序。故union all效率更高，尽量使用union all
+## union
+
+合并，用法同union all，区别在于union会去重，会排序；union all不会去重，不会排序。故union all效率更高，尽量使用union all
 
 2019年每个用户的支付和退款金额汇总
 
@@ -1006,11 +1014,19 @@ FROM
  GROUP BY e.phonebrand;
 ```
 
-### 窗口函数
+其实union和union all并不属于表连接
 
-- 累计计算窗口函数
+# 窗口函数
 
-`sum……over(partition by…… order by…… rows between……and……)`
+## 累计计算窗口函数
+
+### 求和计算函数
+
+```sql
+sum() over(partition by  order by  rows between  and  )
+```
+
+partition是分组，order是排序
 
 有x1，x2，x3，x4，x5……的值，求某数前面所有值的和，如x1,x1+x2,x1+x2+x3……
 
@@ -1022,10 +1038,10 @@ SELECT a.month,
        sum(a.pay_total) over(order by a.month)
 FROM
     (SELECT month(dt) month,
-           sum(pay_amount) pay_total
-    FROM user_trade
-    WHERE year(dt)=2018
-    GROUP BY month(dt)) a;
+            sum(pay_amount) pay_total
+     FROM user_trade
+     WHERE year(dt)=2018
+     GROUP BY month(dt)) a;
 ```
 
 2017-2018年每月的支付总额和当年累积支付总额
@@ -1065,26 +1081,81 @@ FROM
              month(dt)) a;
 ```
 
+2017、2018年按月累计去重的购买用户数
+
+```sql
+SELECT b.year,
+        b.month,
+        sum(b.user_num) over(partition by b.year order by b.month)
+ FROM
+     (SELECT a.year,
+            a.month,
+            count(distinct user_name) user_num
+     FROM
+         (SELECT year(dt) year,
+                 min(month(dt)) month
+         FROM user_trade
+         WHERE year(dt) in (2017,2018)
+         GROUP BY year(dt) year,
+                  user_name) a
+     GROUP BY a.year,
+              a.month) b
 
 
-- 移动平均函数
+ set hive.mapred.mode=nonstrict;
+ SELECT b.month,
+ count(distinct a.user_name)
+ FROM
+ (SELECT substr(dt,1,7) as month,
+ user_name
+ FROM user_trade
+ WHERE year(dt) in (2017,2018)
+ GROUP BY substr(dt,1,7),
+ user_name)a
+ CROSS JOIN
+ (SELECT month
+ FROM dim_month)b
+ WHERE b.month>=a.month
+ and substr(a.month,1,4)=substr(b.month,1,4)
+ GROUP BY b.month;
+```
 
-`avg……over(partition by…… order by…… rows between……and……)`
+2017、2018年按月累计去重的退款用户数
 
-rows between 2 preceding and current row
-前两行和本行
+```sql
+SELECT b.year,
+         b.month,
+         sum(b.user_num) over(partition by b.year order by b.month)
+  FROM
+      (SELECT a.year,
+             a.month,
+             count(distinct user_name) user_num
+      FROM
+          (SELECT year(dt) year,
+                 min(month(dt)) month
+          FROM user_refund
+          WHERE year(dt) in (2017,2018)
+          GROUP BY year(dt),
+                   user_name) a
+      GROUP BY a.year,
+               a.month) b;
+```
 
-rows between 3 preceding and 1 following
-前三行到后一行(5行)
+### 移动平均函数
 
-rows between unbounded preceding and current row
-前面所有行和本行
+```sql
+avg() over(partition by  order by  rows between  and )
+```
 
-rows between current row and unbounded following
-本行和后面所有行
+计算固定个数的移动数值的平均值，如有x1，x2，x3，x4，x5……的值，(x1+x2)/2,(x2+x3)/2,(x3+x4)/2,……
 
-计算固定个数的移动数值的平均值，如
-有x1，x2，x3，x4，x5……的值，(x1+x2)/2,(x2+x3)/2,(x3+x4)/2,……
+`rows between 2 preceding and current row`：前两行和本行
+
+`rows between 3 preceding and 1 following`：前三行到后一行（5行）
+
+`rows between unbounded preceding and current row`：前面所有行和本行
+
+`rows between current row and unbounded following`：本行和后面所有行
 
 2018年每个月的近三月移动平均支付金额
 
@@ -1102,10 +1173,12 @@ FROM
 
 对于前两个月，不够三个月计算平均值，第一个月即自身，第二个月是前两个月的平均值
 
-- 累计最值
-  `max…… over(partition by……order by……rows between ……  and……) `
+### 累计最值函数
 
-  `min…… over(partition by……order by……rows between ……  and……) `
+```sql
+max() over(partition by  order by  rows between   and )
+min() over(partition by  order by  rows between   and )                   
+```
 
 2018年每个月的近三月的最大和最小支付金额
 
@@ -1133,16 +1206,25 @@ WHERE dt>'0'
 GROUP BY substr(dt,1,7);
 ```
 
+## 分区排序窗口函数
 
+为每行记录生成一个序号，从1开始，依次排序，不重复
 
-### 分区排序窗口函数
+```sql
+row_number() over(partition by  order by )
+```
 
-- `row_number() over(partition by……order by……)`
-  为每行记录生成一个序号，从1开始，依次排序，不重复
-- `rank() over(partition by……order by……)`
-  按字段值排序，并列时排名相同，下一个不同值的排名从并列后的真实位置开始，排序是不连续的
-- `dense_rank() over(partition by……order by……)`
-  按字段值排序，并列时排名相同，下一个不同值的排名从并列排名开始，排序是连续的
+按字段值排序，并列时排名相同，下一个不同值的排名从并列后的真实位置开始，排序是不连续的
+
+```sql
+rank() over(partition by  order by )
+```
+
+按字段值排序，并列时排名相同，下一个不同值的排名从并列排名开始，排序是连续的
+
+```sql
+dense_rank() over(partition by  order by )
+```
 
 2019年1月，用户购买商品品类数量的排名
 
@@ -1202,12 +1284,13 @@ FROM
 WHERE c.rank<=3;
 ```
 
+## 分组排序窗口函数
 
+```sql
+ntile(n) over(partition by  order by )
+```
 
-### 分组排序窗口函数
-
-- `ntile(n) over(partition by……order by……)`
-  ntile不支持rows between，若切片不均匀，则默认增加第一个切片的分布，分组结果为1，2，……n
+ntile不支持rows between and，是对整个数据做分组。若分组不均匀，则默认增加第一个分组的分布，分组结果为1，2，……n
 
 2019年1月的支付用户，按照支付金额分成5组
 
@@ -1262,13 +1345,21 @@ FROM
 WHERE c.rank=1;
 ```
 
+## 偏移分析窗口函数
 
+往后偏移
 
-### 偏移分析窗口
+```sql
+lag(field,offset,default) over(partition by……order by……)
+```
 
-- `lag(field,offset,default) over(partition by……order by……)`
-- `lead(field,offset,default) over(partition by……order by……)`
-  field是偏移的字段名，offset是偏移量，default是偏移量超出字段范围时的默认值，若不指定，则返回null，如
+往前偏移
+
+```sql
+lead(field,offset,default) over(partition by……order by……)
+```
+
+field是偏移的字段名，offset是偏移量，default是偏移量超出字段范围时的默认值，若不指定，则返回null
 
 Alice和Alexander的时间偏移
 
@@ -1313,13 +1404,15 @@ FROM
     GROUP BY user_name) a;  
 ```
 
-### HiveSQL常用技巧
+# HiveSQL常用技巧
 
-#### 去重技巧--用group by替换distinct
+## 去重
+
+用group by替换distinct
 
 取出user_trade表中全部支付用户
 
- distinct写法
+* distinct写法
 
 ```sql
 SELECT distinct user_name
@@ -1327,7 +1420,7 @@ SELECT distinct user_name
  WHERE dt>'0';
 ```
 
-group by优化写法
+* group by优化写法
 
 ```sql
 SELECT user_name
@@ -1366,112 +1459,137 @@ SELECT a.user_name
      GROUP BY user_name)b ON a.user_name=b.user_name;
 ```
 
-#### grouping sets,cube,rollup
+## 排序组合
 
-- grouping sets
-  对group by维度任意组合进行分组，形式是个集合
+### grouping sets
+
+形式是个集合，相当于对集合里的所有分组进行group by，然后union all
 
 用户的性别分布，城市分布，等级分布
 
 ```sql
 SELECT sex,
-         count(user_name)
-  FROM user_info
-  GROUP BY sex,
-           user_name;
+       count(user_name)
+FROM user_info
+GROUP BY sex,
+         user_name;
            
-  SELECT city,
-         count(user_name)
-  FROM user_info
-  GROUP BY city,
-           user_name; 
+SELECT city,
+       count(user_name)
+FROM user_info
+GROUP BY city,
+         user_name; 
            
-  SELECT level,
-         count(user_name)
-  FROM user_info
-  GROUP BY level,
-           user_name;
+SELECT level,
+       count(user_name)
+FROM user_info
+GROUP BY level,
+         user_name;
 ```
 
 优化
 
 ```sql
 SELECT sex,
+       city,
+       level,
+       count(user_name)
+FROM user_info
+GROUP by sex,
          city,
          level,
-         count(user_name)
- FROM user_info
- GROUP by sex,
-          city,
-          level,
-          user_name
-  GROUPING SETS(sex,city,level);
+         user_name
+GROUPING SETS((sex,user_name),(city,user_name),(level,user_name));
 ```
 
 用户的性别分布和每个性别的城市分布
 
 ```sql
 SELECT sex,
-        count(distinct user_id)
- FROM user_info
- GROUP BY sex;
+       count(distinct user_id)
+FROM user_info
+GROUP BY sex;
  
- SELECT sex,
-        city,
-        count(distinct user_id)
- FROM user_info
- GROUP BY sex,
-          city;
+SELECT sex,
+       city,
+       count(distinct user_id)
+FROM user_info
+GROUP BY sex,
+         city;
 ```
 
 优化
 
 ```sql
 SELECT sex,
-         city,
-         count(distinct user_name)
-  FROM user_info
-  GROUP BY sex,city
-  GROUPING SETS(sex,(sex,city));
+       city,
+       count(distinct user_name)
+FROM user_info
+GROUP BY sex,city
+GROUPING SETS(sex,(sex,city));
 ```
 
-- with cube
-  对group by的所有维度组合进行分组
+每个性别、不同性别和手机品牌的退款金额分布
+
+```sql
+SELECT c.sex,
+        c.phonebrand,
+        sum(c.refund_total)
+ FROM
+     ((SELECT user_name,
+             sex,
+             extra2['phonebrand']) phonebrand
+       FROM user_info) a
+       LEFT JOIN
+       (SELECT user_name,
+               sum(refund_amount) refund_total
+        FROM user_refund
+        GROUP BY user_name) b
+        ON a.user_name=b.user_name) c
+  GROUP BY c.sex,
+           c.phonebrand
+  GROUPING SETS(c.sex,(c.sex,c.phonebrand))
+```
+
+### with cube
+
+对group by的所有维度进行组合聚合
 
 性别，城市，等级的各种组合的用户分布
 
 ```sql
-SELECT  sex,
-         city,
-         level,
-         count(distinct user_id)
- FROM user_info
- GROUP BY sex,city,level
- GROUPING SETS(sex,city,level,(sex,city),(sex,level),(city,level),(sex,city,level));
+SELECT sex,
+       city,
+       level,
+       count(distinct user_id)
+FROM user_info
+GROUP BY sex,city,level
+GROUPING SETS(sex,city,level,(sex,city),(sex,level),(city,level),(sex,city,level));
 ```
 
 优化
 
 ```sql
-SELECT  sex,
-         city,
-         level,
-         count(distinct user_id)
- FROM user_info
- GROUP BY sex,city,level
- with cube;
+SELECT sex,
+       city,
+       level,
+       count(distinct user_id)
+FROM user_info
+GROUP BY sex,city,level
+with cube;
 ```
 
-- rollup
-  以group by**最左侧维度**为基准下钻，层级聚合，主要用于时间上
+### with rollup
+
+是with cube的子集，以group by**最左侧维度**为基准做层级聚合，主要用于时间上
 
 求每个月的支付总额和每年的支付总额
 
 ```sql
- SELECT a.dt,
-         sum(a.year_total),
-         sum(a.month_total),         
-  FROM 
+SELECT a.dt,
+       sum(a.year_total),
+       sum(a.month_total),         
+FROM 
       (SELECT year(dt) dt,
               sum(pay_amount) year_total,
               0 as month_total
@@ -1485,23 +1603,23 @@ SELECT  sex,
       FROM user_trade
       WHERE dt>'0'
       GROUP BY substr(dt,1,7)) a
- GROUP BY a.dt;
+GROUP BY a.dt;
 ```
 
 优化
 
 ```sql
 SELECT year(dt),
-        month(dt),
-        sum(pay_amount)
- FROM user_trade
- WHERE dt>'0'
- GROUP BY year(dt),
+       month(dt),
+       sum(pay_amount)
+FROM user_trade
+WHERE dt>'0'
+GROUP BY year(dt),
           month(dt)
- with rollup;
+with rollup;
 ```
 
-### 转换思路
+## 转换思路
 
 在2017年和2018年都购买的用户
 
@@ -1533,9 +1651,11 @@ SELECT a.user_name
  WHERE a.year_num=2;
 ```
 
-### 使用union all时开启并发执行
+## 并发执行
 
+```sql
 set hive.exec.parallel=true
+```
 
 每个用户的支付和退款金额汇总
 
@@ -1562,21 +1682,36 @@ SELECT a.user_name,
  GROUP BY a.user_name;
 ```
 
-### 行列互转与lateral view
+## 行列互转与lateral view
 
-- 行转列
-  `explode(split(field,','))`
+### 行转列
 
-把field的值（一行多个）按照 ’,‘（根据field值判断）分割，然后转成列
+```sql
+explode(split(field,','))
+```
 
-- 列转行：
-  `concat_ws(',',collect_set(column))`
+把field的值（一行多个）按照`,`（根据field值判断）分割，然后转成列
 
-把一列值以 ’,‘ 连接成一行 
+### 列转行
 
-- lateral view
+```sql
+concat_ws(',',collect_set(column))
+```
 
-对多字段连接  
+把一列值以`,`连接成一行 
+
+把每个用户购买的品类变成一行，品类间逗号分割
+
+```sql
+SELECT user_name,
+       concat_ws(',',collect_set(goods_category))
+  FROM user_trade
+  GROUP BY user_name;
+```
+
+### lateral view
+
+对多字段连接
 
 每个品类的购买用户数
 
@@ -1588,145 +1723,13 @@ lateral view explode(split(category_detail,',')) b as category
 GROUP BY b.category;
 ```
 
-### 表连接的优化问题
-
-- 小表在前，大表在后
-  hive会假定最后一个表为大表，将其缓存，最后扫描
-- 使用相同的连接键
-  多表连接时，连接键相同，只会产生一个mapreduce job
-- 尽早过滤数据
-  使用尽量少的字段，分区表要分区
-- 逻辑复杂时引入中间表
-  当某个子查询建表经常使用时，可以提取出来
-
-### 表连接的数据倾斜
-
- 表现：任务进度长期维持在99%或100%，只有少量的reduce子任务未完成
- 原因：
-
-- 空值产生数据倾斜
-  两表连接时若有大量空值，可先进行过滤
-  on a.user_id=b.user_id and b.user_id is not null
-- 一张表很大，一张表很小的两表连接
-  将小表放到内存里，在map端做join
-   例:a为小表，b为大表
-
-```sql
-SELECT /*+mapjoin(a)*/,
-         b.xx
-  FROM 
-      a 
-      join b 
-      on a.xx=b.xx
-```
-
-- 两个表连接条件的字段类型不一致
-  把连接条件的字段类型改为一致
-  `cast(col as type)`把col转换为type型
-
-```sql
-on a.user_id=cast(b.user_id as string)
-```
-
-**计算按月累计去重(累计计数去重)**
-
-2017、2018年按月累计去重的购买用户数
-
-```sql
-SELECT b.year,
-        b.month,
-        sum(b.user_num) over(partition by b.year order by b.month)
- FROM
-     (SELECT a.year,
-            a.month,
-            count(distinct user_name) user_num
-     FROM
-         (SELECT year(dt) year,
-                 min(month(dt)) month
-         FROM user_trade
-         WHERE year(dt) in (2017,2018)
-         GROUP BY year(dt) year,
-                  user_name) a
-     GROUP BY a.year,
-              a.month) b
-
-
- set hive.mapred.mode=nonstrict;
- SELECT b.month,
- count(distinct a.user_name)
- FROM
- (SELECT substr(dt,1,7) as month,
- user_name
- FROM user_trade
- WHERE year(dt) in (2017,2018)
- GROUP BY substr(dt,1,7),
- user_name)a
- CROSS JOIN
- (SELECT month
- FROM dim_month)b
- WHERE b.month>=a.month
- and substr(a.month,1,4)=substr(b.month,1,4)
- GROUP BY b.month;
-```
-
-每个性别、不同性别和手机品牌的退款金额分布
-
-```sql
-SELECT c.sex,
-        c.phonebrand,
-        sum(c.refund_total)
- FROM
-     ((SELECT user_name,
-             sex,
-             extra2['phonebrand']) phonebrand
-       FROM user_info) a
-       LEFT JOIN
-       (SELECT user_name,
-               sum(refund_amount) refund_total
-        FROM user_refund
-        GROUP BY user_name) b
-        ON a.user_name=b.user_name) c
-  GROUP BY c.sex,
-           c.phonebrand
-  GROUPING SETS(c.sex,(c.sex,c.phonebrand))
-```
-
-把每个用户购买的品类变成一行，品类间逗号分割
-
-```sql
-SELECT user_name,
-       concat_ws(',',collect_set(goods_category))
-  FROM user_trade
-  GROUP BY user_name;
-```
-
-2017、2018年按月累计去重的退款用户数
-
-```sql
-SELECT b.year,
-         b.month,
-         sum(b.user_num) over(partition by b.year order by b.month)
-  FROM
-      (SELECT a.year,
-             a.month,
-             count(distinct user_name) user_num
-      FROM
-          (SELECT year(dt) year,
-                 min(month(dt)) month
-          FROM user_refund
-          WHERE year(dt) in (2017,2018)
-          GROUP BY year(dt),
-                   user_name) a
-      GROUP BY a.year,
-               a.month) b;
-```
-
-
 # transform
 
 自定义函数，创建新的字段
 
-`transform(旧表字段名) using "文件" as 新表字段名`
+```sql
+transform(旧表字段名) using "文件" as 新表字段名
+```
 
 * awk shell方式
 
@@ -1769,6 +1772,7 @@ select word, count(*) form t group by word;
  ```
 
 ```shell
+# map文件，将每个词后加上1
 # cat mapper.py
 
 import sys
@@ -1778,7 +1782,7 @@ for line in sys.stdin:
      for word in ss:
         print('%s\t1' % (word))
 
-
+# reduce文件，按key计算count总数
 # cat reducer.py
 
 import sys
@@ -1804,25 +1808,16 @@ for line in sys.stdin:
 print('%s\t%d' % (last_key, last_count))
 
  
-
+# 建立初始表
 create table docs(line string);
-
+# 往初始表导入数据
 load data local inpath '/home/badou/hive_test/The_Man_of_Property.txt' into table docs;
 
-
-create table word_count(word string ,count string);
-
+# 建立word count表
+create table word_count(word string,count string);
+# 使用初始表和map，reduce文件向word count表导入数据
 insert overwrite table word_count
 select transform(wc.word, wc.count) using 'python reducer.py' as word,count
 from
 (select transform(line) using 'python mapper.py' as word,count from docs cluster by word) wc;
 ```
-
-
-
-
-
-
-
- 
-
