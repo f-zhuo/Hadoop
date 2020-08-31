@@ -1721,11 +1721,12 @@ SELECT b.category,
 FROM user_goods_category a
 lateral view explode(split(category_detail,',')) b as category
 GROUP BY b.category;
+# user_name、category_detail都在user_goods_category表里，explode相当于产生了一个新表
 ```
 
 # transform
 
-自定义函数，创建新的字段
+通过自定义创建新的字段
 
 ```sql
 transform(旧表字段名) using "文件" as 新表字段名
