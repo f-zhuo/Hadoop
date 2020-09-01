@@ -96,7 +96,7 @@ Hbase数据存放在内存和HDFS上，所以会有对应的两种读取方法
 
 ## HDFS
 
-HLog：日志机制，避免数据丢失。一个region server上的所有region共享Hlog
+HLog：日志机制，避免数据丢失。所有的region server共享Hlog
 
 ### 预写日志
 
