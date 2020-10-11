@@ -211,25 +211,15 @@ select /*+MAPJOIN(a)*/ * from a join b on a.user_id =b.user_id
 select /*+STREAMTABLE(b)*/ * from a join b on a.user_id =b.user_id
 ```
 
-##### 笛卡尔积
+##### 外连接
 
-在进行outer join时，会先逐条扫描基准表的每一个记录，对于基准表的每个记录，也会扫描整个补充表进行匹配，相当于做了笛卡尔积
+在进行outer join时，会逐条扫描基准表的每一个记录，对于基准表的每个记录，也会扫描整个补充表进行匹配，相当于做了笛卡尔积
 
-解决方法：把补充表放进内存，只会扫描一次，前提是补充表是小表，可以灵活使用left join/right join实现
+解决方法：把小表放进内存，只会扫描一次，基准表小用left join，补充表小用right join
 
 #### 大大表关联
 
-##### 连接条件为空
-
-大量的连接条件是空或者是 0 ，最后分到一个reduce中
-
-解决方法：
-
-* 把空值的 key 变成一个字符串加上随机数，就可以把倾斜的数据分到不同的 reduce 上，由于空值本来就是无效数据，这样处理也不能影响其他正常key，并不影响最终结果 
-
-```shell
-select * from log a join user b on case when ( a.uid = '0 or a.uid is null) then concat('a.uid',rand ()) else a.uid end = b.user_id
-```
+##### 数据存在大量空值
 
 * 过滤空值
 
@@ -240,7 +230,7 @@ join users b
 on (a.user_id is not null and a.user_id = b.user_id); 
 ```
 
-但是这种方法只适用于join，对于left join，需要保留基准表的全表，可以先过滤空值取非空值，再取空值，将两者union all即可
+但是这种方法只适用于join，对于outer join，需要保留基准表的全表，可以先过滤空值取非空值，再取空值，将两者union all即可
 
 ```sql
 select * 
@@ -253,11 +243,17 @@ from log
 where log.uid is null 
 ```
 
-##### 连接条件是非空
+##### 连接条件key相同
 
-连接条件是大量的非空值也会分到一个reduce
+解决方法：
 
-解决方法：只取有用的那部分记录
+* 在key之前加上不同的前缀，就可以把倾斜的数据分到不同的 reduce 上，等到处理完成后再恢复，这样就减小了数据的规模
+
+```shell
+select * from log a join user b on concat('a.uid',rand ()) = b.user_id
+```
+
+* 只取有用的那部分记录，减小表的数据量
 
 ```sql
 select /*+MAPJOIN(d1)*/ *
@@ -293,7 +289,7 @@ on (a.usr_id = cast(b.uid as string));
 
 这两个组合相当于做了分组+排序，若空值或某个key值太多，也会造成数据倾斜
 
-解决方法和join的大大表关联一致，过滤空值或者只取有用值
+解决方法和join的大大表关联一致，过滤空值或者只取有用记录或者加前缀
 
 ```shell
 select cast(count(distinct(user_id))+1 as bigint ) as user_cnt # +1是因为空值也算作一个uid
