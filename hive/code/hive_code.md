@@ -1347,13 +1347,13 @@ WHERE c.rank=1;
 
 ## 偏移分析窗口函数
 
-往后偏移
+往前偏移
 
 ```sql
 lag(field,offset,default) over(partition by……order by……)
 ```
 
-往前偏移
+往后偏移
 
 ```sql
 lead(field,offset,default) over(partition by……order by……)
