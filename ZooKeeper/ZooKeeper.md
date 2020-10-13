@@ -50,6 +50,23 @@ zookeeper有三种运行模式： 集群模式、单机模式和伪集群模式�
 
 遵守的是paxos协议
 
+## paxos
+
+一种一致性算法，分成两个角色，proposer和acceptor
+
+* proposer向大多数的acceptor发起提案，acceptor接收后会和之前接收的提案进行比较，若提案编号比之前大，acceptor会回复proposer，同时把之前提案的回复内容也一并发送。对于编号小于之前的提案，acceptor不会回复
+* proposer接收大部分acceptor的回复后会请求accept，acceptor接收后，在不违反自身对其他proposer的承诺的前提下，会同意提案
+
+## ZAB
+
+存在两个模式
+
+* 广播模式：数据同步
+  * 客户端发起请求后，leader会把请求变成若干个proposer，每个proposer都有一个唯一的ID
+  * leader和每个follower都有一个消息队列，leader把消息放在队列里，follower从队列取出消息，同时发送ACK给leader
+  * leader接到半数以上的ACK就会发送commit
+* 恢复模式：选主
+
 # 监控机制
 
 常用的三个命令
